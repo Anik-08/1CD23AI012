@@ -156,3 +156,59 @@ Benefits:
 * Low latency
 * Reduced API polling
 * Better user experience
+
+
+# Stage 2
+
+## Database Choice
+
+I would use PostgreSQL because it is reliable, supports structured data well, and provides good performance through indexing and ACID compliance.
+
+## Notification Table
+
+```sql
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY,
+    studentId INT NOT NULL,
+    notificationType VARCHAR(20) NOT NULL,
+    message TEXT NOT NULL,
+    isRead BOOLEAN DEFAULT FALSE,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+## Challenges at Scale
+
+As the number of students and notifications increases, queries may become slower, storage requirements will grow, and the database will experience higher load.
+
+## Optimizations
+
+* Add indexes on frequently queried fields such as `studentId` and `isRead`.
+* Use pagination to fetch notifications in smaller batches.
+* Archive old notifications to reduce the size of active data.
+
+Example index:
+
+```sql
+CREATE INDEX idx_student_read
+ON notifications(studentId, isRead);
+```
+
+## Sample Queries
+
+Get unread notifications:
+
+```sql
+SELECT *
+FROM notifications
+WHERE studentId = 1042
+AND isRead = false;
+```
+
+Mark a notification as read:
+
+```sql
+UPDATE notifications
+SET isRead = true
+WHERE id = 'abc123';
+```
