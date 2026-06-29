@@ -212,3 +212,104 @@ UPDATE notifications
 SET isRead = true
 WHERE id = 'abc123';
 ```
+
+# Stage 3
+
+The query is logically correct:
+
+```sql
+SELECT *
+FROM notifications
+WHERE studentID = 1042
+AND isRead = false
+ORDER BY createdAt ASC;
+```
+
+As the table grows, performance may slow because more rows need to be searched.
+
+## Recommended Index
+
+```sql
+CREATE INDEX idx_student_read_created
+ON notifications(studentID, isRead, createdAt);
+```
+
+This helps the database filter and sort records more efficiently.
+
+## Should Every Column Be Indexed?
+
+No. Too many indexes increase storage usage and slow down inserts and updates. Indexes should only be created on frequently queried columns.
+
+## Placement Notifications in the Last 7 Days
+
+```sql
+SELECT DISTINCT studentID
+FROM notifications
+WHERE notificationType = 'Placement'
+AND createdAt >= NOW() - INTERVAL '7 DAYS';
+```
+
+## Query Cost
+
+* Without index: O(n)
+* With index: O(log n)
+
+# Stage 4
+
+Fetching notifications on every page load can increase database load.
+
+## Improvements
+
+* **Caching (Redis):** Store frequently accessed notifications to reduce database queries and improve response time.
+* **Pagination:** Load notifications in smaller batches (e.g., 20 at a time).
+* **Lazy Loading:** Fetch more notifications only when needed, such as when the user scrolls.
+* **WebSockets:** Push new notifications to users in real time instead of repeatedly polling the server.
+
+## Tradeoffs
+
+* **Redis:** Fast, but requires additional infrastructure.
+* **Pagination:** Reduces load, but may require multiple API requests.
+* **WebSockets:** Provides instant updates, but adds implementation complexity.
+
+# Stage 5
+
+## Issues with Current Approach
+
+Sending notifications one student at a time is slow, hard to scale, and failures can leave the system in an inconsistent state.
+
+## Better Approach
+
+Use a message queue such as RabbitMQ or Kafka.
+
+### Flow
+
+1. HR clicks **Notify All**.
+2. Save the notification request.
+3. Push student IDs to a queue.
+4. Workers process the queue asynchronously.
+5. Send emails and push notifications.
+
+### Pseudocode
+
+```text
+Save Notification Request
+
+Push Student IDs To Queue
+
+Worker:
+    student = queue.pop()
+    save notification
+    send email
+    if failure -> retry
+```
+
+## Database Save vs Email
+
+They should not happen together. Store the notification in the database first, then send emails asynchronously. This makes the system more reliable and easier to recover from failures.
+
+## Benefits
+
+* Faster processing
+* Better scalability
+* Retry support
+* Improved reliability
